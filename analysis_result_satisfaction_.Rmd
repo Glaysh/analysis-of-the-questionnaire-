@@ -1,0 +1,189 @@
+---
+title: "Project" 
+output:
+  html_document:
+    theme: cosmo
+    highlight: monochrome
+    toc: yes
+    toc_float: yes
+    toc_depth: 3
+    code_folding: hide
+---
+
+
+Load packages
+```{r echo = F, message=FALSE, warning=FALSE}
+library ("rio")
+library ("skimr")
+library ("psych")
+library ("tidyverse")
+library ("car")
+library("readxl")
+library('psych')
+library('rio')
+library('tidyverse')
+library('skimr')
+library('psych')
+library('dplyr')
+library('car')
+library('MASS')
+library('QuantPsyc')
+library('apaTables')
+library ('Publish')
+library('stargazer')
+library('ggeffects') 
+library('margins') 
+library ('Publish')
+library('stargazer')
+library('plotROC') 
+library('ggplot2')
+library("plotROC")
+```
+
+#import data
+```{r echo = F, message=FALSE, warning=FALSE}
+data <- read_excel("C:/Users/alexs/df_satisfaction.xlsx", col_names = TRUE)
+View(data)
+```
+
+
+```{r echo = F, message=FALSE, warning=FALSE}
+attributes(data)
+summary (data)
+view (data)
+describe (data)
+skim(data)
+```
+
+#Statistics $where_learn
+```{r echo = F, message=FALSE, warning=FALSE}
+attributes(data$where_learn)
+summary (data$where_learn)
+view (data$where_learn)
+describe (data$where_learn)
+skim(data$where_learn)
+hist.default(data$KF7, border = "dark orange", col = "dark orange",
+             main = "Утверждение: Где вы изучали русский язык?", xlab = "Ответные категории", ylab = "Количество ответов")
+```
+
+#Statistics $tech_bags
+```{r echo = F, message=FALSE, warning=FALSE}
+attributes(data$tech_bags)
+summary (data$tech_bags)
+view (data$tech_bags)
+describe (data$tech_bags)
+skim(data$tech_bags)
+hist.default(data$KF7, border = "dark green", col = "dark green",
+             main = "Утверждение: Оцените технические проблемы", xlab = "Ответные категории", ylab = "Количество ответов")
+```
+
+#Statistics $KF7
+```{r echo = F, message=FALSE, warning=FALSE}
+attributes(data$KF7)
+summary (data$KF7)
+view (data$tech_bags)
+describe (data$KF7)
+skim(data$KF7)
+hist.default(data$KF7, border = " dark blue", col = "dark blue",
+             main = "Утверждение: Я замечал свой прогресс на каждом занятии этого курса", xlab = "Ответные категории", ylab = "Количество ответов")
+```
+
+#New dichotomic variable (course score)
+```{r echo = F, message=FALSE, warning=FALSE}
+data$score_dih <- recode(data$course_score, "8:10= 1; 0:8=0", as.numeric = TRUE)
+summary(data$score_dih)
+table(data$score_dih)
+```
+
+#Regression (pair)
+```{r echo = F, message=FALSE, warning=FALSE}
+Linear11<- lm(data$tech_bags ~ data$course_score, data=data)
+print(Linear11)
+summary(Linear11)
+```
+
+#### Binary regressin ####
+# Firstly make a regression for each independent variable for binary variable (course score) 
+```{r echo = F, message=FALSE, warning=FALSE}
+model1 <- glm(formula = score_dih  ~tech_bags, data = data)
+summary(model1)
+exp(coef(model1))
+
+model2 <- glm(formula = score_dih ~ where_learn, data = data)
+summary(model2)
+exp(coef(model2))
+
+model3 <- glm(formula = score_dih ~ KF7, data = data)
+summary(model3)
+exp(coef(model3))
+
+```
+
+# Make a model wich all variable 
+```{r echo = F, message=FALSE, warning=FALSE}
+
+model4 <- glm(formula = score_dih ~ tech_bags + where_learn + KF7, data = data)
+summary(model4)
+exp(coef(model4))
+```
+
+# Visualise coefficient  - use packege ggeffects
+# terms - independent variable for this plot
+```{r echo = F, message=FALSE, warning=FALSE}
+plot(ggpredict(model4, terms = "score_dih")) 
+plot(ggpredict(model4, terms = c("score_dih", "where_learn")))
+```
+
+#Marginal effects (use package "margins") 
+```{r echo = F, message=FALSE, warning=FALSE}
+marg_fit <- margins(model4)
+summary(marg_fit) 
+plot(marg_fit, labels = c("Я замечал свой прогресс на каждом 
+                          занятии этого курса.",
+                          "Оцените технические проблемы",
+                          "Где вы изучали русский язык?"
+                          ))
+```
+
+# Х variables and У means 
+# Make a ROC curve
+```{r echo = F, message=FALSE, warning=FALSE}
+data$pred  <- predict(object = model4, type = "response", newdata = data)
+summary(data$pred)
+```
+
+# Use package "plotROC" get predict, argument d - observed variable, m -predictable variable 
+```{r echo = F, message=FALSE, warning=FALSE}
+ggplot(data, aes(d = score_dih, m= pred)) +
+  geom_roc(labels = F)
+ROC<-ggplot(data, aes(d = score_dih, m= pred)) +
+  geom_roc(labels = F)
+```
+
+# Calculate curve
+```{r echo = F, message=FALSE, warning=FALSE}
+calc_auc(ROC)
+
+```
+#We have a 0,75 it means 75/25 our model with goof predictable features
+
+#Plus Use stargazer packege to load our output in html file
+```{r echo = F, message=FALSE, warning=FALSE}
+stargazer(model1, model2, model3, model4,
+          type='html',   out='bin_regr_results1.html', 
+          apply.coef = exp,  t.auto=F )
+```
+
+# Plus Add title and labels for table
+```{r echo = F, message=FALSE, warning=FALSE}
+stargazer(model1, model2, model3, model4,
+          dep.var.labels="Оценка курса",
+          covariate.labels=c("Оцените технические проблемы",
+                             "Где вы изучали русский язык?",
+                             "Я замечал свой прогресс на каждом занятии этого курса."),
+          type='html',   out='bin_regr_results.html', 
+          apply.coef = exp,  t.auto=F)
+```
+
+
+```
